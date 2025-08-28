@@ -1,11 +1,5 @@
-# Локальные конфиги
-*.local.php
-
 # PHP deps
 /vendor/
-
-# Composer cache
-/composer.lock   # исключать только если библиотека, иначе оставить
 
 # IDE / Editor
 /.idea/
