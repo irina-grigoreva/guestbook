@@ -1,1 +1,12 @@
+# Сказать Linguist, что это точно PHP
 *.php linguist-language=PHP
+*.phtml linguist-language=PHP
+*.blade.php linguist-language=PHP
+
+# Исключить «шум» из подсчёта языков
+vendor/** linguist-vendored
+public/vendor/** linguist-vendored
+public/assets/** linguist-vendored
+**/*.min.js linguist-vendored
+**/*.min.css linguist-vendored
+
