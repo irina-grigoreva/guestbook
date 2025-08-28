@@ -1,0 +1,27 @@
+# Локальные конфиги
+*.local.php
+
+# PHP deps
+/vendor/
+
+# Composer cache
+/composer.lock   # исключать только если библиотека, иначе оставить
+
+# IDE / Editor
+/.idea/
+/.vscode/
+/*.code-workspace
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs, temp
+/storage/logs
+/storage/framework/cache
+/storage/framework/sessions
+/storage/framework/views
+*.log
+
+# Docker
+*.pid
