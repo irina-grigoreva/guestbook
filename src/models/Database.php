@@ -23,63 +23,60 @@ class Database
         return R::findAll('guestbook', 'ORDER BY created_at DESC');
     }
 
-    public function getGuestbookPage(int $page = 1, int $perPage = 5, array $filters = []): array
+    public function getGuestbookPage(int $page = 1, array $filters = [], int $perPage = 5): array
     {
+        // Нормализация page/perPage
         $page    = max(1, $page);
         $perPage = max(1, min(100, $perPage));
-        $offset  = ($page - 1) * $perPage;
 
-        // Нормализация фильтров
-        $filters['name']  = isset($filters['name'])  ? trim((string)$filters['name'])  : null;
-        $filters['email'] = isset($filters['email']) ? mb_strtolower(trim((string)$filters['email'])) : null;
-        $filters['ip']    = isset($filters['ip'])    ? trim((string)$filters['ip'])    : null;
-
-        $where  = [];
-        $params = [];
-
-        if (!empty($filters['name'])) {
-            $where[]  = 'username LIKE ?';
-            $params[] = '%' . $filters['name'] . '%';
-        }
-        if (!empty($filters['email'])) {
-            $where[]  = 'email LIKE ?'; // или email = ? если хотите точное совпадение
-            $params[] = '%' . $filters['email'] . '%';
-        }
-        if (!empty($filters['ip'])) {
-            $where[]  = 'ip_address = ?';
-            $params[] = $filters['ip'];
-        }
-
-        $conditions = $where ? implode(' AND ', $where) : '';
-
-        // total с учётом фильтров
-        $total = (int) R::count('guestbook', $conditions, $params);
-
-        // WHERE-часть для выборки
-        $whereSql = $conditions ? 'WHERE ' . $conditions : '';
-
-        // Лучше сортировать по id, если created_at не гарантирован
-        $sql = "$whereSql ORDER BY id DESC LIMIT $offset, $perPage";
-
-        $items = R::findAll('guestbook', $sql, $params);
-
-        // Привести к обычному массиву (по желанию)
-        $rows = array_values($items);
-
-        $pages = (int) ceil($total / $perPage);
-
-        return [
-            'posts' => $rows,
-            'meta'  => [
-                'page'     => $page,
-                'perPage'  => $perPage,
-                'total'    => $total,
-                'pages'    => $pages,
-                'hasPrev'  => $page > 1,
-                'hasNext'  => $page < $pages,
-            ],
+        $allowed = [
+            'sort_email' => ['col' => 'email',      'dir' => HelpersController::normDir($filters['sort_email'] ?? null, 'ASC')],
+            'sort_name'  => ['col' => 'username',   'dir' => HelpersController::normDir($filters['sort_name']  ?? null, 'ASC')],
+            'sort_date'  => ['col' => 'created_at', 'dir' => HelpersController::normDir($filters['sort_date']  ?? null, 'DESC')],
         ];
+
+        // Сборка ORDER BY по приоритету (дату ставим первой)
+        $orderParts = [];
+        foreach (['sort_date', 'sort_name', 'sort_email'] as $k) {
+            if (!empty($filters[$k])) {
+                $orderParts[] = $allowed[$k]['col'] . ' ' . $allowed[$k]['dir'];
+            }
+        }
+        if (!$orderParts) {
+            $orderParts[] = 'created_at DESC';
+        }
+        $orderBy = ' ORDER BY ' . implode(', ', $orderParts);
+
+        $total = (int) R::getCell('SELECT COUNT(*) FROM guestbook');
+
+        $pages = (int) ceil(($total ?: 0) / $perPage);
+        $pages = max(1, $pages);                  // чтобы не делить на 0 и была хотя бы 1 страница «пустая»
+        if ($page > $pages) {
+            $page = $pages;
+        }
+
+        $offset = ($page - 1) * $perPage;
+
+        $sql    = $orderBy . ' LIMIT ? OFFSET ?';
+        $params = [$perPage, $offset];
+
+        // Достаём данные
+        $items = R::findAll('guestbook', $sql, $params);
+        $rows  = R::exportAll($items);
+
+        // Метаданные пагинации
+        $meta = [
+            'page'     => $page,
+            'perPage'  => $perPage,
+            'total'    => $total,
+            'pages'    => $pages,
+            'hasPrev'  => $page > 1,
+            'hasNext'  => $page < $pages,
+        ];
+
+        return ['posts' => $rows, 'meta' => $meta];
     }
+
 
     public function addGuestbookMessage($message, $name, $email, $server)
     {

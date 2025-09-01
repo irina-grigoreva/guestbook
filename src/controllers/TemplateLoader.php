@@ -16,8 +16,9 @@ class TemplateLoader
         $this->templateDir = rtrim($templateDir, '/\\') . DIRECTORY_SEPARATOR;
     }
 
-    public function getPart(string $partPath, array|object $data = [], bool $is_admin = false): void
+    public function getPart(string $partPath, $data = [], bool $is_admin = false): void
     {
+
         $file = $this->templateDir . str_replace(['/', '\\'], DIRECTORY_SEPARATOR, 'views/' . $partPath) . '.php';
 
         if (is_object($data)) {

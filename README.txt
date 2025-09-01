@@ -17,19 +17,15 @@ composer install
 
 cp .env.example .env
 
-4) Инициализация БД
-
-docker exec -it mysql-db mysql -uroot -prootpass -e "CREATE DATABASE IF NOT EXISTS appdb CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
-[ -f database/schema.sql ] && docker exec -i mysql-db mysql -uappuser -papppass appdb < database/schema.sql
-[ -f database/seed.sql ]   && docker exec -i mysql-db mysql -uappuser -papppass appdb < database/seed.sql
-
-5) Запуск в Docker
+4) Запуск в Docker
 
 docker compose up -d
 
 
-6) Проверка работоспособности
+5) Проверка работоспособности
 Docker: http://localhost:8000, phpMyAdmin — http://localhost:8080
+
+6) Импортировать БД в appdb
 
 7) Скрипты разработчика
 composer cs       # проверка стиля (phpcs, PSR-12)

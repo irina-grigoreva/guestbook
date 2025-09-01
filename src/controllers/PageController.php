@@ -17,14 +17,22 @@ class PageController
         $tpl = new TemplateLoader();
         $tpl->render('default', $contentPage, array_merge([
             'title' => $titlePage,
-        ], [
-            'posts' => $data]));
+        ], $data));
     }
 
     public function indexAction(): void
     {
         $db = new Database();
-        $data = $db->getGuestbookPage();
+
+        $page     = isset($_GET['page']) ? (int)$_GET['page'] : 1;
+
+        $filters = [
+            'sort_email' => HelpersController::normDir($_GET['sort_email'] ?? null, ''),
+            'sort_name'  => HelpersController::normDir($_GET['sort_name']  ?? null, ''),
+            'sort_date'  => HelpersController::normDir($_GET['sort_date']  ?? null, 'DESC'), // DESC по умолчанию
+        ];
+
+        $data = $db->getGuestbookPage($page, $filters);
 
         $this->renderPage(
             'pages/home',

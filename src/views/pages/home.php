@@ -45,41 +45,15 @@
                             <th scope="col">Ссылка</th>
                         </tr>
                     </thead>
-                    <tbody>                        
+                    <tbody>
                         <?php
-
-                        // echo '<pre>';
-                        // var_dump($data);
-                        // echo '</pre>';
-
                         foreach ($data['posts'] as $row) {
-                                $this->getPart('parts/article', $row);
+                            $this->getPart('parts/article', $row);
                         }
                         ?>
                     </tbody>
                 </table>
-
-                <nav class="blog-pagination justify-content-center d-flex">
-                    <ul class="pagination">
-                        <li class="page-item">
-                            <a href="#" class="page-link" aria-label="Previous">
-                                <i class="ti-angle-left"></i>
-                            </a>
-                        </li>
-                        <li class="page-item">
-                            <a href="#" class="page-link">1</a>
-                        </li>
-                        <li class="page-item active">
-                            <a href="#" class="page-link">2</a>
-                        </li>
-                        <li class="page-item">
-                            <a href="#" class="page-link" aria-label="Next">
-                                <i class="ti-angle-right"></i>
-                            </a>
-                        </li>
-                    </ul>
-                </nav>
-
+                <?php $this->getPart('parts/pagination', $data['meta']); ?>
             </div>
         </div>
     </div>
