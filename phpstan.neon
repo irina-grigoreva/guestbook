@@ -1,0 +1,18 @@
+parameters:
+  # выбирай уровень: 0..9 или 'max'
+  level: 7
+
+  paths:
+    - src
+
+  tmpDir: var/phpstan  # создай папку или убери строку
+
+  # Для динамических свойств у RedBean
+  universalObjectCratesClasses:
+    - RedBeanPHP\OODBBean
+
+  # Укажи версию PHP, если нужно (пример: 8.2)
+  # phpVersion: 80200
+
+includes:
+  - phpstan-baseline.neon
