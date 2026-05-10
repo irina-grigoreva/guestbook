@@ -1,6 +1,11 @@
 # PHP deps
 /vendor/
 
+# Environment
+.env
+.env.*
+!.env.example
+
 # IDE / Editor
 /.idea/
 /.vscode/
@@ -19,3 +24,7 @@ Thumbs.db
 
 # Docker
 *.pid
+
+# Tool caches
+/var/
+.phpunit.result.cache

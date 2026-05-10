@@ -1,47 +1,37 @@
 <?php
 
+declare(strict_types=1);
+
 namespace app\controllers;
 
-class HelpersController
+final class HelpersController
 {
+    /**
+     * @param array<string, mixed> $server
+     */
     public static function clientIp(array $server): string
     {
-        foreach (['HTTP_CLIENT_IP', 'HTTP_X_FORWARDED_FOR', 'REMOTE_ADDR'] as $k) {
-            if (!empty($server[$k])) {
-                $ip = trim(explode(',', (string)$server[$k])[0]);
+        foreach (['HTTP_CLIENT_IP', 'HTTP_X_FORWARDED_FOR', 'REMOTE_ADDR'] as $key) {
+            if (!empty($server[$key])) {
+                $ip = trim(explode(',', (string) $server[$key])[0]);
 
-                // Приведение IPv6 localhost (::1) к IPv4 localhost
-                if ($ip === '::1') {
-                    return '127.0.0.1';
-                }
-
-                return $ip;
+                return $ip === '::1' ? '127.0.0.1' : $ip;
             }
         }
+
         return '0.0.0.0';
     }
 
-    public static function normDir(?string $v, string $default = 'ASC'): string
+    public static function escape(?string $value): string
     {
-        $v = strtolower((string)$v);
-        if ($v === 'asc') {
-            return 'ASC';
-        }
-        if ($v === 'desc') {
-            return 'DESC';
-        }
-
-        if ($default === '') {
-            return '';
-        }
-
-        return strtoupper($default);
+        return htmlspecialchars((string) $value, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
     }
 
-    public static function urlWith(array $overrides = []): string
+    /**
+     * @param array<string, mixed> $old
+     */
+    public static function old(string $key, array $old): string
     {
-        $qs = array_merge($_GET, $overrides);
-        $qs = array_filter($qs, static fn($val) => $val !== '' && $val !== null);
-        return '?' . http_build_query($qs);
+        return self::escape(isset($old[$key]) ? (string) $old[$key] : '');
     }
 }

@@ -1,160 +1,75 @@
 <?php
 
+declare(strict_types=1);
+
 namespace app\controllers;
 
-use app\models\Database;
+use app\Factory\ApplicationFactory;
+use Throwable;
 
 final class PostFormHandler
 {
-    /**
-     * Обрабатывает POST и выводит JSON-ответ. Ничего не возвращает.
-     */
+    public function __construct(private readonly ApplicationFactory $factory = new ApplicationFactory())
+    {
+    }
+
     public function handle(): void
     {
-        // 1) Сессия нужна для CSRF
-        if (session_status() !== PHP_SESSION_ACTIVE) {
-            session_start();
-        }
-
-        // 2) Разрешаем только POST
         if (($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'POST') {
-            $this->json(['ok' => false, 'errors' => ['method' => 'Метод не разрешён']], 405);
+            $this->redirectWithErrors(['method' => 'Unsupported request method.'], []);
         }
 
-        $post   = $_POST;
-        $server = $_SERVER;
-        $errors = [];
+        $result = $this->factory->validator()->validate($_POST);
+        $errors = $result['errors'];
 
-        // 3) CSRF
-        // if (
-        //     empty($_SESSION['csrf_token']) ||
-        //     empty($post['csrf_token']) ||
-        //     !hash_equals((string)$_SESSION['csrf_token'], (string)$post['csrf_token'])
-        // ) {
-        //     $errors['csrf'] = 'Неверный CSRF-токен.';
-        // }
-
-        // 4) Honeypot
-        if (!empty($post['website'])) {
-            $errors['spam'] = 'Spam detected.';
+        $csrfToken = isset($_POST['csrf_token']) ? (string) $_POST['csrf_token'] : null;
+        if (!$this->factory->csrfTokenService()->isValid($csrfToken)) {
+            $errors['csrf'] = 'Your session expired. Please submit the form again.';
         }
 
-        // 5) Данные
-        //$title   = trim((string)($post['title']   ?? ''));
-        $message = trim((string)($post['message'] ?? ''));
-        $name    = trim((string)($post['name']    ?? ''));
-        $email   = trim((string)($post['email']   ?? ''));
-
-        // 6) Валидация
-        // if ($title === '') {
-        //     $errors['title']   = 'Укажите название.';
-        // }
-        if ($message === '') {
-            $errors['message'] = 'Добавьте текст.';
-        }
-        if ($name === '') {
-            $errors['name']    = 'Укажите имя.';
-        }
-        if ($email === '' || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
-            $errors['email'] = 'Неверный email.';
-        }
-        // if (mb_strlen($title) > 200) {
-        //     $errors['title'] = 'До 200 символов.';
-        // }
-        if (mb_strlen($name)  > 100) {
-            $errors['name']  = 'До 100 символов.';
+        if (!empty($_POST['website'])) {
+            $errors['spam'] = 'Spam protection rejected this submission.';
         }
 
-        // 7) Если есть ошибки — возвращаем 400 и выходим
-        if ($errors) {
-            $this->json(['ok' => false, 'errors' => $errors, 'id' => null], 400);
+        if ($errors !== []) {
+            $this->redirectWithErrors($errors, $result['data']);
         }
 
-        // 8) Запись в БД
         try {
-            $db   = new Database();
-            $data = $db->addGuestbookMessage($message, $name, $email, $server);
-            $this->json($data, 200);
-        } catch (\Throwable $e) {
-            $this->json(['ok' => false, 'errors' => ['db' => 'Ошибка']], 500);
-        }
-    }
-
-    public function delete(): void
-    {
-        // 1) Сессия для CSRF (если нужно)
-        if (session_status() !== PHP_SESSION_ACTIVE) {
-            session_start();
-        }
-
-        // 2) Разрешаем только DELETE (+ fallback через POST _method=DELETE или X-HTTP-Method-Override)
-        $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
-        $override = ($_POST['_method'] ?? '') === 'DELETE'
-            || (($_SERVER['HTTP_X_HTTP_METHOD_OVERRIDE'] ?? '') === 'DELETE');
-
-        if (!($method === 'DELETE' || ($method === 'POST' && $override))) {
-            $this->json(['ok' => false, 'errors' => ['method' => 'Метод не разрешён']], 405);
+            $this->factory->guestbookRepository()->create([
+                'name' => $result['data']['name'],
+                'email' => $result['data']['email'],
+                'message' => $result['data']['message'],
+                'ip_address' => HelpersController::clientIp($_SERVER),
+                'user_agent' => substr((string) ($_SERVER['HTTP_USER_AGENT'] ?? ''), 0, 255),
+            ]);
+        } catch (Throwable $exception) {
+            error_log($exception->getMessage());
+            $this->redirectWithErrors(
+                ['database' => 'The message could not be saved. Please try again later.'],
+                $result['data']
+            );
         }
 
-        // 3) Парсим входящие данные (JSON / x-www-form-urlencoded / query string)
-        $payload = [];
-        $contentType = $_SERVER['CONTENT_TYPE'] ?? $_SERVER['HTTP_CONTENT_TYPE'] ?? '';
-
-        // Если метод DELETE: тело доступно через php://input
-        $raw = file_get_contents('php://input');
-
-        if (stripos($contentType, 'application/json') !== false) {
-            $payload = json_decode($raw ?: '[]', true) ?: [];
-        } elseif (stripos($contentType, 'application/x-www-form-urlencoded') !== false) {
-            parse_str($raw ?? '', $payload);
-        }
-
-        // Добавим данные из POST (на случай override) и из GET (id можно передать в query)
-        if (! empty($_POST)) {
-            $payload = $payload + $_POST;
-        }
-        if (! empty($_GET)) {
-            $payload = $payload + $_GET;
-        }
-
-        // 4) Достаём параметры
-        $id = isset($payload['id']) ? (int)$payload['id'] : 0;
-
-        // 5) Валидация (+ опционально CSRF)
-        $errors = [];
-        if ($id <= 0) {
-            $errors['id'] = 'Неверный id.';
-        }
-
-        if ($errors) {
-            $this->json(['ok' => false, 'errors' => $errors], 400);
-        }
-
-        // 6) Удаление в БД
-        try {
-            $db = new Database();
-            // Реализуйте этот метод как показано ранее (R::load + R::trash)
-            $res = $db->deleteGuestbookMessage($id);
-
-            if (!empty($res['ok'])) {
-                // Можно вернуть 200 с JSON или 204 без тела
-                $this->json(['ok' => true, 'id' => $id], 200);
-            } else {
-                $this->json(['ok' => false, 'errors' => ['not_found' => 'Запись не найдена']], 404);
-            }
-        } catch (\Throwable $e) {
-            $this->json(['ok' => false, 'errors' => ['db' => 'Ошибка']], 500);
-        }
+        $this->factory->flashBag()->set('success', 'Thanks. Your message has been added.');
+        $this->redirectHome();
     }
 
     /**
-     * Унифицированная отправка JSON + завершение скрипта.
+     * @param array<string, string> $errors
+     * @param array<string, mixed> $old
      */
-    private function json(array $payload, int $statusCode = 200): void
+    private function redirectWithErrors(array $errors, array $old): void
     {
-        http_response_code($statusCode);
-        header('Content-Type: application/json; charset=utf-8');
-        echo json_encode($payload, JSON_UNESCAPED_UNICODE);
+        $flashBag = $this->factory->flashBag();
+        $flashBag->set('errors', $errors);
+        $flashBag->set('old', $old);
+        $this->redirectHome();
+    }
+
+    private function redirectHome(): never
+    {
+        header('Location: /', true, 303);
         exit;
     }
 }

@@ -1,52 +1,44 @@
 <?php
 
+declare(strict_types=1);
+
 namespace app\controllers;
 
-class TemplateLoader
+final class TemplateLoader
 {
-    protected string $templateDir;
+    private string $templateDir;
 
-    protected function isLoggedIn(): bool
+    public function __construct(?string $templateDir = null)
     {
-        return isset($_SESSION['user_id']);
-    }
-
-    public function __construct(string $templateDir = APP)
-    {
+        $templateDir ??= dirname(__DIR__);
         $this->templateDir = rtrim($templateDir, '/\\') . DIRECTORY_SEPARATOR;
     }
 
-    public function getPart(string $partPath, $data = [], bool $is_admin = false): void
+    /**
+     * @param array<string, mixed> $data
+     */
+    public function getPart(string $partPath, array $data = []): void
     {
-
         $file = $this->templateDir . str_replace(['/', '\\'], DIRECTORY_SEPARATOR, 'views/' . $partPath) . '.php';
-
-        if (is_object($data)) {
-            if ($data instanceof \RedBeanPHP\OODBBean) {
-                $data = \RedBeanPHP\R::exportAll([$data])[0]; // самый надёжный способ
-            } else {
-                $data = (array) $data; // для обычных объектов
-            }
-        }
 
         if (file_exists($file)) {
             extract($data);
             include $file;
-        } else {
-            echo "<!-- Part not found: $file -->";
         }
     }
 
+    /**
+     * @param array<string, mixed> $data
+     */
     public function render(string $layoutPath, string $contentPath, array $data = []): void
     {
         $layoutFile = $this->templateDir . 'views/layouts/' . $layoutPath . '.php';
         $contentFile = $this->templateDir . 'views/' . $contentPath . '.php';
 
         if (!file_exists($layoutFile)) {
-            die("Layout not found: $layoutFile");
+            throw new \RuntimeException('Layout file is missing.');
         }
 
-        // Делаем путь к контенту доступным в layout
         $data['__content_file'] = $contentFile;
 
         extract($data);

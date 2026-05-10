@@ -1,6 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 return [
-    'admin_email' => 'admin@gmail.com',
-    'site_name' => 'Address Book'
+    'site_name' => 'Guestbook',
 ];
